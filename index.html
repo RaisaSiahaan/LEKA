@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LKPD Eksperimen AI Interaktif</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f1f5f9;
+      margin: 0;
+      padding: 20px;
+    }
+    .lkpd-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #ffffff;
+      color: #1e293b;
+      border: 2px solid #cbd5e1;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+    }
+    .banner {
+      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+      margin: -32px -32px 28px -32px;
+      padding: 28px 32px;
+      border-radius: 14px 14px 0 0;
+      color: white;
+    }
+    .identity-box {
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    input[type="text"], input[type="date"], select, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 12px;
+      box-sizing: border-box;
+      background: #ffffff;
+    }
+    input[type="text"]:focus, textarea:focus {
+      outline: 2px solid #3b82f6;
+      border-color: transparent;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 8px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+    }
+    th {
+      background: #1e293b;
+      color: white;
+      padding: 10px;
+      text-align: left;
+    }
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    textarea {
+      height: 70px;
+      resize: vertical;
+    }
+    .btn-save {
+      background: #16a34a;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 20px;
+      width: 100%;
+    }
+    .btn-save:hover {
+      background: #15803d;
+    }
+    @media print {
+      .btn-save { display: none; }
+      body { background: white; padding: 0; }
+      .lkpd-container { border: none; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+<form class="lkpd-container" id="lkpdForm">
+  <!-- Banner -->
+  <div class="banner">
+    <span style="background: rgba(255,255,255,0.2); font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 20px;">LKPD Digital Interaktif</span>
+    <h1 style="margin: 8px 0 4px 0; font-size: 22px;">ANALISIS EKSPERIMEN KECERDASAN BUATAN</h1>
+    <p style="margin: 0; font-size: 13px; opacity: 0.9;">Informatika Kelas 7 • Topik: Literasi & Etika AI (LEKA)</p>
+  </div>
+
+  <!-- Identitas Siswa -->
+  <div class="identity-box">
+    <div>
+      <label>Nama Siswa</label>
+      <input type="text" placeholder="Ketik nama lengkap..." required>
+    </div>
+    <div>
+      <label>Kelas / Kelompok</label>
+      <input type="text" placeholder="Contoh: 7A / Kelompok 3" required>
+    </div>
+    <div>
+      <label>Tanggal</label>
+      <input type="date" required>
+    </div>
+    <div>
+      <label>Mata Pelajaran</label>
+      <input type="text" value="Informatika / Eksperimen AI" readonly style="background: #e2e8f0;">
+    </div>
+  </div>
+
+  <!-- Tabel Pengamatan -->
+  <h3>1. Tabel Pencatatan Data Eksperimen</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Jenis Uji Coba</th>
+        <th style="width: 35%;">Perlakuan / Kondisi</th>
+        <th style="width: 20%;">Tebakan AI</th>
+        <th style="width: 20%;">Confidence Score (%)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Baseline (Kontrol)</b></td>
+        <td>Tangan sendiri, ruangan terang</td>
+        <td>
+          <select><option>Benar</option><option>Salah</option></select>
+        </td>
+        <td><input type="text" placeholder="misal: 98%"></td>
+      </tr>
+      <tr>
+        <td><b>Uji Silang (A)</b></td>
+        <td>Tangan teman diarahkan ke kamera</td>
+        <td>
+          <select><option>Benar</option><option>Salah</option></select>
+        </td>
+        <td><input type="text" placeholder="misal: 92%"></td>
+      </tr>
+      <tr>
+        <td><b>Uji Gangguan (B.1)</b></td>
+        <td>Menutupi separuh bagian tangan</td>
+        <td>
+          <select><option>Benar</option><option>Salah</option></select>
+        </td>
+        <td><input type="text" placeholder="misal: 54%"></td>
+      </tr>
+      <tr>
+        <td><b>Uji Gangguan (B.2)</b></td>
+        <td>Lampu dimatikan / redup</td>
+        <td>
+          <select><option>Benar</option><option>Salah</option></select>
+        </td>
+        <td><input type="text" placeholder="misal: 40%"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Pertanyaan Analisis -->
+  <h3 style="margin-top: 24px;">2. Pertanyaan Analisis</h3>
+  <div style="margin-bottom: 12px;">
+    <label>1. Analisis Uji Coba Silang (Mengapa AI tetap kenal tangan teman?)</label>
+    <textarea placeholder="Ketik analisis jawabanmu di sini..."></textarea>
+  </div>
+  <div style="margin-bottom: 12px;">
+    <label>2. Analisis Uji Coba Gangguan (Mengapa % Score AI turun/ragu-ragu saat gelap/ditutupi?)</label>
+    <textarea placeholder="Ketik analisis jawabanmu di sini..."></textarea>
+  </div>
+
+  <!-- Kesimpulan -->
+  <h3>3. Kesimpulan Akhir</h3>
+  <textarea placeholder="Tuliskan 2-3 kalimat kesimpulanmu..." style="height: 60px;"></textarea>
+
+  <!-- Tombol Simpan -->
+  <button type="button" class="btn-save" onclick="window.print()">💾 Simpan Hasil Jawaban (Cetak ke PDF)</button>
+</form>
+
+</body>
+</html>

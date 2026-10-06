@@ -1,204 +1,1008 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<script id="lumi-getcssvar">
+window.getCssVar = window.getCssVar || function(name) {
+  try {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  } catch (e) { return ''; }
+};
+</script>
+
+<script id="lumi-canvas-guard">
+(function() {
+  if (window.__lumiCanvasGuard) return;
+  window.__lumiCanvasGuard = true;
+  var MAX_PX = 4096, MIN_FONT_PX = 12;
+  try {
+    var CP = HTMLCanvasElement.prototype;
+    var BOX = {width: 'clientWidth', height: 'clientHeight'}, D = {};
+    Object.keys(BOX).forEach(function(p) {
+      D[p] = Object.getOwnPropertyDescriptor(CP, p);
+    });
+    var tracking = function(el, p) {
+      var box = el[BOX[p]];
+      return !el.style[p] && box > 0 && box === D[p].get.call(el) &&
+          box === el['__lumiLast' + p];
+    };
+    var MAX = {width: 'maxWidth', height: 'maxHeight'};
+    var PAD = {width: ['paddingLeft', 'paddingRight'],
+               height: ['paddingTop', 'paddingBottom']};
+    var avail = function(el, p) {
+      var pe = el.parentElement;
+      if (!pe) return 0;
+      var cs = getComputedStyle(pe);
+      return pe[BOX[p]] - parseFloat(cs[PAD[p][0]]) -
+          parseFloat(cs[PAD[p][1]]);
+    };
+    Object.keys(BOX).forEach(function(p) {
+      var d = D[p];
+      if (!d || !d.set || !d.get) return;
+      Object.defineProperty(CP, p, {
+        configurable: true, enumerable: d.enumerable, get: d.get,
+        set: function(v) {
+          var n = +v, box = this[BOX[p]];
+          if (n > MAX_PX) n = MAX_PX;
+          if (n > box && tracking(this, p)) {
+            var el = this, pins = {};
+            Object.keys(BOX).forEach(function(q) {
+              if (tracking(el, q)) pins[q] = avail(el, q) ||
+                  el['__lumiBox' + q];
+            });
+            Object.keys(pins).forEach(function(q) {
+              el.style[q] = '100%';
+              el.style[MAX[q]] = pins[q] + 'px';
+            });
+            n = box;
+          }
+          this['__lumiBox' + p] = box;
+          this['__lumiLast' + p] = n;
+          d.set.call(this, isNaN(n) ? v : n);
+        }
+      });
+    });
+  } catch (e) {}
+  try {
+    var XP = CanvasRenderingContext2D.prototype;
+    var px = /(\d*\.?\d+)px/;
+    var floorFont = function(ctx) {
+      var f = ctx.font, m = px.exec(f);
+      if (m && +m[1] >= 4 && +m[1] < MIN_FONT_PX) ctx.font = f.replace(px, MIN_FONT_PX + 'px');
+    };
+    ['fillText', 'strokeText', 'measureText'].forEach(function(k) {
+      var o = XP[k];
+      if (typeof o !== 'function') return;
+      XP[k] = function() { floorFont(this); return o.apply(this, arguments); };
+    });
+  } catch (e) {}
+})();
+</script>
+
+<!-- Library html2pdf untuk ekspor PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style id="lumi-runtime">
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:ital,wght@0,300..700;1,300..700&family=Google+Sans+Code:ital,wght,MONO@0,300..700,0..1;1,300..700,0..1&display=swap');
+
+:root {
+  --body-bg: transparent;
+  --ff-sans: 'Google Sans Flex', 'Google Sans Text', 'Google Sans', sans-serif;
+  --ff-mono: 'Google Sans Code', 'Google Sans Mono', monospace;
+
+  --lumi-sys-spacing--xs: 4px;
+  --lumi-sys-spacing--s: 8px;
+  --lumi-sys-spacing--m: 12px;
+  --lumi-sys-spacing--l: 16px;
+  --lumi-sys-spacing--xl: 20px;
+
+  --lumi-sys-shape--small: 8px;
+  --lumi-sys-shape--medium: 12px;
+  --lumi-sys-shape--large: 16px;
+  --lumi-sys-shape--full: 999px;
+
+  --lumi-sys-color--surface: #fdfcfc;
+  --lumi-sys-color--surface-dim: #f2f0f0;
+  --lumi-sys-color--surface-bright: #ffffff;
+  --lumi-sys-color--on-surface: #000000;
+  --lumi-sys-color--on-surface-variant: rgba(0, 0, 0, 0.55);
+  --lumi-sys-color--positive: #008052;
+  --lumi-sys-color--positive-container: #daf9d4;
+  --lumi-sys-color--accent: #9dd2ff;
+  --lumi-sys-color--accent-container: #dcf1ff;
+  --lumi-sys-color--accent-fixed: #3186ff;
+  --lumi-sys-color--primary: #3186ff;
+  --lumi-sys-color--stroke-default: #e3e3e3;
+
+  --surface: var(--lumi-sys-color--surface, #fdfcfc);
+  --surface-dim: var(--lumi-sys-color--surface-dim, #f2f0f0);
+  --surface-bright: var(--lumi-sys-color--surface-bright, #ffffff);
+  --on-surface: var(--lumi-sys-color--on-surface, #000000);
+  --on-surface-variant: var(--lumi-sys-color--on-surface-variant, rgba(0, 0, 0, 0.55));
+  --primary: var(--lumi-sys-color--primary, #3186ff);
+  --accent-container: var(--lumi-sys-color--accent-container, #dcf1ff);
+  --accent-fixed: var(--lumi-sys-color--accent-fixed, #3186ff);
+  --positive: var(--lumi-sys-color--positive, #008052);
+  --positive-container: var(--lumi-sys-color--positive-container, #daf9d4);
+  --stroke-default: var(--lumi-sys-color--stroke-default, #e3e3e3);
+
+  --spacing-xs: var(--lumi-sys-spacing--xs, 4px);
+  --spacing-s: var(--lumi-sys-spacing--s, 8px);
+  --spacing-m: var(--lumi-sys-spacing--m, 12px);
+  --spacing-l: var(--lumi-sys-spacing--l, 16px);
+  --spacing-xl: var(--lumi-sys-spacing--xl, 20px);
+
+  --r-s: var(--lumi-sys-shape--small, 8px);
+  --r-m: var(--lumi-sys-shape--medium, 12px);
+  --r-l: var(--lumi-sys-shape--large, 16px);
+  --r-full: var(--lumi-sys-shape--full, 999px);
+}
+
+:root[data-theme="dark"], body.dark-mode {
+  --body-bg: #0f0f0f;
+  --lumi-sys-color--surface: #0f0f0f;
+  --lumi-sys-color--surface-dim: #141414;
+  --lumi-sys-color--surface-bright: #1c1c1c;
+  --lumi-sys-color--on-surface: #e0e0e0;
+  --lumi-sys-color--on-surface-variant: rgba(255, 255, 255, 0.55);
+  --lumi-sys-color--positive: #0ebc5f;
+  --lumi-sys-color--positive-container: #002220;
+  --lumi-sys-color--accent-container: #192967;
+  --lumi-sys-color--accent-fixed: #3186ff;
+  --lumi-sys-color--primary: #9dd2ff;
+  --lumi-sys-color--stroke-default: #2d2f38;
+}
+
+html, body {
+  background: var(--body-bg, transparent) !important;
+  color: var(--on-surface) !important;
+  overflow-y: auto;
+  -webkit-font-smoothing: antialiased;
+  font-family: var(--ff-sans, system-ui, sans-serif);
+}
+
+* { box-sizing: border-box; }
+</style>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LKPD Eksperimen AI Interaktif</title>
+  <title>LKPD Analisis Eksperimen Kecerdasan Buatan</title>
   <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f1f5f9;
-      margin: 0;
-      padding: 20px;
-    }
-    .lkpd-container {
-      max-width: 800px;
+    .widget-container {
+      width: 100%;
+      max-width: 680px;
       margin: 0 auto;
-      background: #ffffff;
-      color: #1e293b;
-      border: 2px solid #cbd5e1;
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+      padding: var(--spacing-m, 12px);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-l, 16px);
     }
-    .banner {
-      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-      margin: -32px -32px 28px -32px;
-      padding: 28px 32px;
-      border-radius: 14px 14px 0 0;
-      color: white;
+
+    .lkpd-card {
+      background: var(--surface-bright, #ffffff);
+      border: 1px solid var(--stroke-default, #e2e8f0);
+      border-radius: var(--r-l, 16px);
+      padding: var(--spacing-l, 16px);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-m, 12px);
     }
-    .identity-box {
-      background: #f8fafc;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 24px;
+
+    .header-banner {
+      background: linear-gradient(135deg, var(--primary, #3186ff) 0%, var(--accent-fixed, #1e3a8a) 100%);
+      color: #ffffff;
+      border-radius: var(--r-m, 12px);
+      padding: var(--spacing-l, 16px);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs, 4px);
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--r-full, 999px);
+      font-family: var(--ff-mono, monospace);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      width: fit-content;
+    }
+
+    .header-title {
+      margin: 4px 0 2px 0;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      line-height: 1.25;
+    }
+
+    .header-sub {
+      margin: 0;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .identity-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--spacing-m, 12px);
+      background: var(--surface-dim, #f8fafc);
+      padding: var(--spacing-m, 12px);
+      border-radius: var(--r-m, 12px);
+      border: 1px solid var(--stroke-default, #e2e8f0);
     }
-    label {
-      display: block;
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-label {
       font-size: 11px;
       font-weight: 700;
-      color: #475569;
       text-transform: uppercase;
-      margin-bottom: 4px;
+      color: var(--on-surface-variant, #64748b);
+      letter-spacing: 0.5px;
     }
-    input[type="text"], input[type="date"], select, textarea {
+
+    .text-input {
       width: 100%;
-      padding: 8px 10px;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: var(--ff-sans, sans-serif);
+      font-size: 13px;
+      border: 1px solid var(--stroke-default, #cbd5e1);
+      border-radius: var(--r-s, 8px);
+      background: var(--surface-bright, #ffffff);
+      color: var(--on-surface, #0f172a);
+      outline: none;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--on-surface, #0f172a);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 8px 0;
+    }
+
+    .step-number {
+      background: var(--accent-container, #dbeafe);
+      color: var(--primary, #1e40af);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       font-size: 12px;
-      box-sizing: border-box;
-      background: #ffffff;
+      font-weight: 700;
+      flex-shrink: 0;
     }
-    input[type="text"]:focus, textarea:focus {
-      outline: 2px solid #3b82f6;
-      border-color: transparent;
+
+    .simulator-box {
+      background: var(--surface-dim, #f8fafc);
+      border: 1px solid var(--stroke-default, #e2e8f0);
+      border-radius: var(--r-m, 12px);
+      padding: var(--spacing-m, 12px);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-m, 12px);
     }
-    table {
+
+    .sim-controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: var(--spacing-s, 8px);
+    }
+
+    .sim-card {
+      background: var(--surface-bright, #ffffff);
+      border: 1px solid var(--stroke-default, #cbd5e1);
+      border-radius: var(--r-s, 8px);
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .sim-card:hover {
+      border-color: var(--primary, #3186ff);
+    }
+
+    .sim-card.is-active {
+      border-color: var(--primary, #3186ff);
+      background: var(--accent-container, #dbeafe);
+    }
+
+    .sim-card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--on-surface, #0f172a);
+    }
+
+    .sim-card-desc {
+      font-size: 11px;
+      color: var(--on-surface-variant, #64748b);
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+
+    /* Camera Viewport & Hand Animation Styling */
+    .camera-viewport {
+      position: relative;
+      width: 100%;
+      height: 210px;
+      background: #090d16;
+      border-radius: var(--r-m, 12px);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: filter 0.3s ease;
+    }
+
+    .camera-hud {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-tag {
+      background: rgba(0, 0, 0, 0.65);
+      color: #ffffff;
+      padding: 3px 8px;
+      border-radius: var(--r-full, 999px);
+      font-family: var(--ff-mono, monospace);
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* Hand & Bounding Box Element */
+    .hand-container {
+      position: absolute;
+      width: 120px;
+      height: 130px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.5s ease-in-out;
+      z-index: 2;
+    }
+
+    .hand-svg {
+      width: 80px;
+      height: 80px;
+      fill: #ffdbac;
+      stroke: #d89e72;
+      stroke-width: 2;
+      filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.5));
+      animation: handGentlyMove 3s infinite ease-in-out;
+    }
+
+    @keyframes handGentlyMove {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-8px) rotate(4deg); }
+    }
+
+    .bounding-box {
+      position: absolute;
+      inset: -5px;
+      border: 2px dashed #3186ff;
+      border-radius: 8px;
+      box-shadow: 0 0 12px rgba(49, 134, 255, 0.4);
+      animation: pulseBox 2s infinite ease-in-out;
+      pointer-events: none;
+    }
+
+    @keyframes pulseBox {
+      0%, 100% { border-color: #3186ff; opacity: 0.9; }
+      50% { border-color: #60a5fa; opacity: 0.5; }
+    }
+
+    .hand-obstacle {
+      position: absolute;
+      width: 100px;
+      height: 60px;
+      background: rgba(50, 50, 50, 0.85);
+      border: 1px solid #777;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      top: 50%;
+      left: 45%;
+      transform: translate(-50%, -20%);
+      z-index: 3;
+      display: none;
+    }
+
+    /* Condition States for Viewport */
+    .viewport-lowlight {
+      filter: brightness(0.35) contrast(0.85);
+    }
+
+    .viewport-blurred .hand-svg {
+      filter: blur(5px) drop-shadow(0px 4px 6px rgba(0,0,0,0.5));
+      animation: handFastMove 0.4s infinite ease-in-out;
+    }
+
+    @keyframes handFastMove {
+      0% { transform: translateX(-15px); }
+      100% { transform: translateX(15px); }
+    }
+
+    .confidence-meter-overlay {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(6px);
+      border-radius: var(--r-s, 8px);
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: #ffffff;
+      z-index: 5;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .confidence-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .confidence-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: var(--r-full, 999px);
+      overflow: hidden;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      border-radius: var(--r-full, 999px);
+      transition: width 0.2s ease, background-color 0.2s ease;
+      background: #008052;
+    }
+
+    .pct-adjust-panel {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface-bright, #ffffff);
+      padding: 8px 12px;
+      border-radius: var(--r-s, 8px);
+      border: 1px solid var(--stroke-default, #cbd5e1);
+    }
+
+    .pct-adjust-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--on-surface, #0f172a);
+      white-space: nowrap;
+    }
+
+    .pct-slider {
+      flex: 1;
+      accent-color: var(--primary, #3186ff);
+      cursor: pointer;
+    }
+
+    .pct-input-number {
+      width: 65px;
+      padding: 4px 6px;
+      font-family: var(--ff-mono, monospace);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      border: 1px solid var(--stroke-default, #cbd5e1);
+      border-radius: var(--r-s, 6px);
+      background: var(--surface-dim, #f8fafc);
+      color: var(--on-surface, #0f172a);
+    }
+
+    /* Table Styling */
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--stroke-default, #cbd5e1);
+      border-radius: var(--r-m, 12px);
+    }
+
+    .data-table {
       width: 100%;
       border-collapse: collapse;
       font-size: 12px;
-      margin-top: 8px;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid #cbd5e1;
-    }
-    th {
-      background: #1e293b;
-      color: white;
-      padding: 10px;
       text-align: left;
     }
-    td {
-      padding: 8px;
-      border-bottom: 1px solid #e2e8f0;
+
+    .data-table th {
+      background: var(--surface-dim, #f1f5f9);
+      color: var(--on-surface, #0f172a);
+      font-weight: 700;
+      padding: 10px;
+      border-bottom: 1px solid var(--stroke-default, #cbd5e1);
     }
-    textarea {
-      height: 70px;
-      resize: vertical;
+
+    .data-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--stroke-default, #e2e8f0);
+      background: var(--surface-bright, #ffffff);
+      vertical-align: middle;
     }
-    .btn-save {
-      background: #16a34a;
-      color: white;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-      cursor: pointer;
-      font-size: 14px;
-      margin-top: 20px;
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .table-select {
       width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+      border: 1px solid var(--stroke-default, #cbd5e1);
+      border-radius: var(--r-s, 6px);
+      background: var(--surface-bright, #ffffff);
+      color: var(--on-surface, #0f172a);
+      outline: none;
     }
-    .btn-save:hover {
-      background: #15803d;
+
+    .table-pct-input {
+      width: 75px;
+      padding: 6px 6px;
+      font-family: var(--ff-mono, monospace);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      border: 1px solid var(--stroke-default, #cbd5e1);
+      border-radius: var(--r-s, 6px);
+      background: var(--surface-bright, #ffffff);
+      color: var(--on-surface, #0f172a);
+      outline: none;
     }
+
+    .table-pct-input:focus {
+      border-color: var(--primary, #3186ff);
+      box-shadow: 0 0 0 2px var(--accent-container, #dbeafe);
+    }
+
+    .question-block {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .question-text {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--on-surface, #0f172a);
+      margin: 0;
+    }
+
+    .question-hint {
+      font-size: 11px;
+      color: var(--on-surface-variant, #64748b);
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .analysis-textarea {
+      width: 100%;
+      min-height: 70px;
+      padding: 10px;
+      font-family: var(--ff-sans, sans-serif);
+      font-size: 12px;
+      border: 1px solid var(--stroke-default, #cbd5e1);
+      border-radius: var(--r-s, 8px);
+      background: var(--surface-dim, #f8fafc);
+      color: var(--on-surface, #0f172a);
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .analysis-textarea:focus {
+      border-color: var(--primary, #3186ff);
+      background: var(--surface-bright, #ffffff);
+    }
+
+    .action-btn {
+      width: 100%;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      background: var(--primary, #3186ff);
+      border: none;
+      border-radius: var(--r-s, 8px);
+      cursor: pointer;
+      transition: background 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .action-btn:hover {
+      background: #2563eb;
+    }
+
+    /* Print Styles */
     @media print {
-      .btn-save { display: none; }
-      body { background: white; padding: 0; }
-      .lkpd-container { border: none; box-shadow: none; }
+      .action-btn, .sim-controls-grid, .pct-adjust-panel {
+        display: none !important;
+      }
+      .widget-container {
+        max-width: 100% !important;
+        padding: 0 !important;
+      }
+      .lkpd-card {
+        border: none !important;
+        box-shadow: none !important;
+      }
     }
   </style>
 </head>
 <body>
 
-<form class="lkpd-container" id="lkpdForm">
-  <!-- Banner -->
-  <div class="banner">
-    <span style="background: rgba(255,255,255,0.2); font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 20px;">LKPD Digital Interaktif</span>
-    <h1 style="margin: 8px 0 4px 0; font-size: 22px;">ANALISIS EKSPERIMEN KECERDASAN BUATAN</h1>
-    <p style="margin: 0; font-size: 13px; opacity: 0.9;">Informatika Kelas 7 • Topik: Literasi & Etika AI (LEKA)</p>
-  </div>
-
-  <!-- Identitas Siswa -->
-  <div class="identity-box">
-    <div>
-      <label>Nama Siswa</label>
-      <input type="text" placeholder="Ketik nama lengkap..." required>
+<div class="widget-container" id="lkpd-content">
+  <div class="lkpd-card">
+    
+    <!-- Header Banner -->
+    <div class="header-banner">
+      <span class="badge-pill">LKPD Interaktif SMPK IPEKA Pluit</span>
+      <h1 class="header-title">Analisis Eksperimen Kecerdasan Buatan (AI)</h1>
+      <p class="header-sub">Simulasi Deteksi Tangan/Gestur & Pengujian Confidence Score</p>
     </div>
-    <div>
-      <label>Kelas / Kelompok</label>
-      <input type="text" placeholder="Contoh: 7A / Kelompok 3" required>
+
+    <!-- Identitas Siswa -->
+    <div class="identity-grid">
+      <div class="field-group">
+        <label class="field-label" for="nama-siswa">Nama Siswa / Kelompok</label>
+        <input type="text" id="nama-siswa" class="text-input" placeholder="Masukkan nama...">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="kelas-siswa">Kelas / Kelompok</label>
+        <input type="text" id="kelas-siswa" class="text-input" placeholder="Contoh: X-1 / Kelompok 3">
+      </div>
     </div>
+
+    <!-- Bagian 1: Simulator Visi AI -->
     <div>
-      <label>Tanggal</label>
-      <input type="date" required>
+      <div class="section-title">
+        <span class="step-number">1</span>
+        <span>Simulasi Pengujian Deteksi Tangan AI</span>
+      </div>
+
+      <div class="simulator-box">
+        <!-- Pilih Kondisi Objek -->
+        <div class="sim-controls-grid">
+          <div class="sim-card is-active" onclick="selectCondition('ideal', 'Deteksi Tangan Jelas', 96)" id="cond-ideal">
+            <div class="sim-card-title">Kondisi Ideal</div>
+            <div class="sim-card-desc">Cahaya terang, gestur tangan terbuka utuh.</div>
+          </div>
+          <div class="sim-card" onclick="selectCondition('lowlight', 'Deteksi Tangan (Gelap)', 62)" id="cond-lowlight">
+            <div class="sim-card-title">Pencahayaan Redup</div>
+            <div class="sim-card-desc">Cahaya kurang, bayangan pada jari.</div>
+          </div>
+          <div class="sim-card" onclick="selectCondition('occluded', 'Tangan Terhalang Penghalang', 45)" id="cond-occluded">
+            <div class="sim-card-title">Objek Terhalang</div>
+            <div class="sim-card-desc">Sebagian tangan tertutup benda.</div>
+          </div>
+          <div class="sim-card" onclick="selectCondition('blurred', 'Gerakan Tangan Cepat', 28)" id="cond-blurred">
+            <div class="sim-card-title">Gerakan Kabur</div>
+            <div class="sim-card-desc">Tangan melambaikan cepat/blur.</div>
+          </div>
+        </div>
+
+        <!-- Camera Viewport dengan Animasi Tangan SVG -->
+        <div class="camera-viewport" id="cam-viewport">
+          <div class="camera-hud">
+            <span class="hud-tag">STATUS: LIVE STREAM</span>
+            <span class="hud-tag" id="hud-object">TARGET: Deteksi Tangan Jelas</span>
+          </div>
+
+          <!-- Animasi Visual Tangan & Bounding Box -->
+          <div class="hand-container" id="hand-element">
+            <div class="bounding-box"></div>
+            <svg class="hand-svg" viewBox="0 0 24 24">
+              <path d="M21,11A1,1 0 0,0 20,10A1,1 0 0,0 19,11V13.5H18.5V7A1,1 0 0,0 17.5,6A1,1 0 0,0 16.5,7V13.5H16V5A1,1 0 0,0 15,4A1,1 0 0,0 14,5V13.5H13.5V6A1,1 0 0,0 12.5,5A1,1 0 0,0 11.5,6V15.5C10.87,15.11 9.94,14.86 9.17,15.18C8.57,15.43 8.08,16.03 8.16,16.71C8.26,17.5 8.94,18.06 9.61,18.45C11.55,19.57 12.5,22 15.5,22H18.5C20.5,22 21,19.5 21,17.5V11Z"/>
+            </svg>
+          </div>
+
+          <!-- Penghalang jika mode Occluded aktif -->
+          <div class="hand-obstacle" id="hand-obstacle-box">Penghalang</div>
+
+          <!-- Confidence Meter Overlay -->
+          <div class="confidence-meter-overlay">
+            <div class="confidence-label-row">
+              <span>Confidence Score AI:</span>
+              <span id="confidence-pct-text">96%</span>
+            </div>
+            <div class="confidence-track">
+              <div class="confidence-fill" id="confidence-bar" style="width: 96%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pengontrol Persentase Interaktif -->
+        <div class="pct-adjust-panel">
+          <label class="pct-adjust-label" for="pct-slider-control">Adjust Confidence %:</label>
+          <input type="range" id="pct-slider-control" class="pct-slider" min="0" max="100" value="96" oninput="updateConfidenceFromSlider(this.value)">
+          <input type="number" id="pct-number-control" class="pct-input-number" min="0" max="100" value="96" oninput="updateConfidenceFromNumber(this.value)">
+          <span style="font-size: 12px; font-weight: 700;">%</span>
+        </div>
+      </div>
     </div>
+
+    <!-- Bagian 2: Tabel Pengamatan -->
     <div>
-      <label>Mata Pelajaran</label>
-      <input type="text" value="Informatika / Eksperimen AI" readonly style="background: #e2e8f0;">
+      <div class="section-title">
+        <span class="step-number">2</span>
+        <span>Tabel Hasil Pengamatan & Eksperimen</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Uji Ke-</th>
+              <th>Kondisi Lingkungan</th>
+              <th>Hasil Deteksi AI</th>
+              <th style="width: 110px;">Tingkat Keyakinan (%)</th>
+              <th>Status Evaluasi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Kondisi Ideal</td>
+              <td>
+                <select class="table-select">
+                  <option value="tangan" selected>Tangan Terdeteksi</option>
+                  <option value="ragu">Tangan Ragu-ragu</option>
+                  <option value="tidak_terdeteksi">Tidak Terdeteksi</option>
+                </select>
+              </td>
+              <td>
+                <input type="number" class="table-pct-input" min="0" max="100" value="96" id="row1-pct">
+              </td>
+              <td>
+                <select class="table-select">
+                  <option value="akurat" selected>Akurat</option>
+                  <option value="meleset">Meleset</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>Pencahayaan Redup</td>
+              <td>
+                <select class="table-select">
+                  <option value="tangan" selected>Tangan Terdeteksi</option>
+                  <option value="ragu">Tangan Ragu-ragu</option>
+                  <option value="tidak_terdeteksi">Tidak Terdeteksi</option>
+                </select>
+              </td>
+              <td>
+                <input type="number" class="table-pct-input" min="0" max="100" value="62" id="row2-pct">
+              </td>
+              <td>
+                <select class="table-select">
+                  <option value="akurat" selected>Akurat</option>
+                  <option value="meleset">Meleset</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>Objek Terhalang</td>
+              <td>
+                <select class="table-select">
+                  <option value="tangan">Tangan Terdeteksi</option>
+                  <option value="ragu" selected>Tangan Ragu-ragu</option>
+                  <option value="tidak_terdeteksi">Tidak Terdeteksi</option>
+                </select>
+              </td>
+              <td>
+                <input type="number" class="table-pct-input" min="0" max="100" value="45" id="row3-pct">
+              </td>
+              <td>
+                <select class="table-select">
+                  <option value="akurat">Akurat</option>
+                  <option value="meleset" selected>Meleset</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>Gerakan Kabur</td>
+              <td>
+                <select class="table-select">
+                  <option value="tangan">Tangan Terdeteksi</option>
+                  <option value="ragu">Tangan Ragu-ragu</option>
+                  <option value="tidak_terdeteksi" selected>Tidak Terdeteksi</option>
+                </select>
+              </td>
+              <td>
+                <input type="number" class="table-pct-input" min="0" max="100" value="28" id="row4-pct">
+              </td>
+              <td>
+                <select class="table-select">
+                  <option value="akurat">Akurat</option>
+                  <option value="meleset" selected>Meleset</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
+
+    <!-- Bagian 3: Pertanyaan Analisis -->
+    <div>
+      <div class="section-title">
+        <span class="step-number">3</span>
+        <span>Analisis & Kesimpulan Siswa</span>
+      </div>
+
+      <div class="question-block">
+        <p class="question-text">1. Bagaimana pengaruh pencahayaan, penghalang, dan gerakan cepat tangan terhadap persentase keyakinan (confidence score) model AI?</p>
+        <p class="question-hint">Petunjuk: Bandingkan persentase yang Anda catat pada kondisi ideal versus redup/terhalang/kabur.</p>
+        <textarea class="analysis-textarea" placeholder="Tuliskan analisis Anda di sini..."></textarea>
+      </div>
+
+      <div class="question-block">
+        <p class="question-text">2. Apa rekomendasi Anda agar sistem visi AI dapat mengenali gestur tangan dengan lebih akurat pada kondisi minim cahaya atau gerakan cepat?</p>
+        <textarea class="analysis-textarea" placeholder="Tuliskan rekomendasi atau solusi teknis di sini..."></textarea>
+      </div>
+    </div>
+
+    <!-- Tombol Simpan & Download PDF -->
+    <button class="action-btn" onclick="simpanLKPD()">
+      <span>💾 Simpan & Kirim LKPD (PDF)</span>
+    </button>
+
   </div>
+</div>
 
-  <!-- Tabel Pengamatan -->
-  <h3>1. Tabel Pencatatan Data Eksperimen</h3>
-  <table>
-    <thead>
-      <tr>
-        <th style="width: 25%;">Jenis Uji Coba</th>
-        <th style="width: 35%;">Perlakuan / Kondisi</th>
-        <th style="width: 20%;">Tebakan AI</th>
-        <th style="width: 20%;">Confidence Score (%)</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><b>Baseline (Kontrol)</b></td>
-        <td>Tangan sendiri, ruangan terang</td>
-        <td>
-          <select><option>Benar</option><option>Salah</option></select>
-        </td>
-        <td><input type="text" placeholder="misal: 98%"></td>
-      </tr>
-      <tr>
-        <td><b>Uji Silang (A)</b></td>
-        <td>Tangan teman diarahkan ke kamera</td>
-        <td>
-          <select><option>Benar</option><option>Salah</option></select>
-        </td>
-        <td><input type="text" placeholder="misal: 92%"></td>
-      </tr>
-      <tr>
-        <td><b>Uji Gangguan (B.1)</b></td>
-        <td>Menutupi separuh bagian tangan</td>
-        <td>
-          <select><option>Benar</option><option>Salah</option></select>
-        </td>
-        <td><input type="text" placeholder="misal: 54%"></td>
-      </tr>
-      <tr>
-        <td><b>Uji Gangguan (B.2)</b></td>
-        <td>Lampu dimatikan / redup</td>
-        <td>
-          <select><option>Benar</option><option>Salah</option></select>
-        </td>
-        <td><input type="text" placeholder="misal: 40%"></td>
-      </tr>
-    </tbody>
-  </table>
+<script>
+  let currentConditionId = 'ideal';
 
-  <!-- Pertanyaan Analisis -->
-  <h3 style="margin-top: 24px;">2. Pertanyaan Analisis</h3>
-  <div style="margin-bottom: 12px;">
-    <label>1. Analisis Uji Coba Silang (Mengapa AI tetap kenal tangan teman?)</label>
-    <textarea placeholder="Ketik analisis jawabanmu di sini..."></textarea>
-  </div>
-  <div style="margin-bottom: 12px;">
-    <label>2. Analisis Uji Coba Gangguan (Mengapa % Score AI turun/ragu-ragu saat gelap/ditutupi?)</label>
-    <textarea placeholder="Ketik analisis jawabanmu di sini..."></textarea>
-  </div>
+  function applyConfidenceValue(val) {
+    let pct = parseInt(val, 10);
+    if (isNaN(pct)) pct = 0;
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
 
-  <!-- Kesimpulan -->
-  <h3>3. Kesimpulan Akhir</h3>
-  <textarea placeholder="Tuliskan 2-3 kalimat kesimpulanmu..." style="height: 60px;"></textarea>
+    // Update HUD Teks & Bar
+    document.getElementById('confidence-pct-text').innerText = pct + '%';
+    const bar = document.getElementById('confidence-bar');
+    bar.style.width = pct + '%';
 
-  <!-- Tombol Simpan -->
-  <button type="button" class="btn-save" onclick="window.print()">💾 Simpan Hasil Jawaban (Cetak ke PDF)</button>
-</form>
+    // Perubahan Warna Indikator
+    if (pct >= 80) {
+      bar.style.backgroundColor = '#008052';
+    } else if (pct >= 50) {
+      bar.style.backgroundColor = '#eab308';
+    } else {
+      bar.style.backgroundColor = '#de2d29';
+    }
+
+    // Synchronize Input Controls
+    document.getElementById('pct-slider-control').value = pct;
+    document.getElementById('pct-number-control').value = pct;
+
+    // Synchronize Tabel berdasarkan kondisi aktif
+    if (currentConditionId === 'ideal') document.getElementById('row1-pct').value = pct;
+    if (currentConditionId === 'lowlight') document.getElementById('row2-pct').value = pct;
+    if (currentConditionId === 'occluded') document.getElementById('row3-pct').value = pct;
+    if (currentConditionId === 'blurred') document.getElementById('row4-pct').value = pct;
+  }
+
+  function selectCondition(condKey, targetName, defaultPct) {
+    currentConditionId = condKey;
+    
+    document.querySelectorAll('.sim-card').forEach(card => card.classList.remove('is-active'));
+    document.getElementById('cond-' + condKey).classList.add('is-active');
+
+    document.getElementById('hud-object').innerText = 'TARGET: ' + targetName;
+
+    const viewport = document.getElementById('cam-viewport');
+    const handEl = document.getElementById('hand-element');
+    const obstacle = document.getElementById('hand-obstacle-box');
+
+    viewport.className = 'camera-viewport';
+    obstacle.style.display = 'none';
+
+    if (condKey === 'ideal') {
+      handEl.style.transform = 'translate(0px, 0px) scale(1)';
+    } else if (condKey === 'lowlight') {
+      viewport.classList.add('viewport-lowlight');
+      handEl.style.transform = 'translate(0px, 0px) scale(0.95)';
+    } else if (condKey === 'occluded') {
+      obstacle.style.display = 'flex';
+      handEl.style.transform = 'translate(-20px, 0px) scale(1)';
+    } else if (condKey === 'blurred') {
+      viewport.classList.add('viewport-blurred');
+      handEl.style.transform = 'translate(0px, -10px) scale(1.05)';
+    }
+
+    let targetRowInputId = 'row1-pct';
+    if (condKey === 'lowlight') targetRowInputId = 'row2-pct';
+    if (condKey === 'occluded') targetRowInputId = 'row3-pct';
+    if (condKey === 'blurred') targetRowInputId = 'row4-pct';
+
+    let existingVal = document.getElementById(targetRowInputId).value;
+    applyConfidenceValue(existingVal !== "" ? existingVal : defaultPct);
+  }
+
+  function updateConfidenceFromSlider(val) {
+    applyConfidenceValue(val);
+  }
+
+  function updateConfidenceFromNumber(val) {
+    applyConfidenceValue(val);
+  }
+
+  /* Fungsi Simpan dan Ekspor Dokumen ke bentuk PDF */
+  function simpanLKPD() {
+    const nama = document.getElementById('nama-siswa').value.trim();
+    if (!nama) {
+      alert('Silakan isi Nama Siswa / Kelompok terlebih dahulu!');
+      document.getElementById('nama-siswa').focus();
+      return;
+    }
+
+    const fileName = 'LKPD_AI_' + nama.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf';
+    const element = document.getElementById('lkpd-content');
+
+    // Pengaturan ekspor html2pdf
+    const opt = {
+      margin:       [10, 10, 10, 10],
+      filename:     fileName,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, logging: false },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    if (typeof html2pdf !== 'undefined') {
+      html2pdf().set(opt).from(element).save().then(() => {
+        alert('LKPD Berhasil Disimpan sebagai PDF!\nNama File: ' + fileName);
+      }).catch(err => {
+        console.error("Gagal html2pdf, membuka dialog cetak fallback:", err);
+        window.print();
+      });
+    } else {
+      // Fallback jika library gagal dimuat dari CDN
+      window.print();
+    }
+  }
+</script>
 
 </body>
 </html>
